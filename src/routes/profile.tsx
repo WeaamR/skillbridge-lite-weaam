@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CheckCircle } from "lucide-react";
 import { useProfile, type Profile } from "@/lib/skillbridge";
 
 export const Route = createFileRoute("/profile")({
