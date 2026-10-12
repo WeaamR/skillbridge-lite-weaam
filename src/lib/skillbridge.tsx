@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type Profile = {
   name: string;
@@ -76,14 +76,36 @@ type Ctx = {
 
 const ProfileContext = createContext<Ctx | null>(null);
 
+/** Session-scoped persistence so a page refresh keeps the latest saved profile. */
+const PROFILE_STORAGE_KEY = "skillbridge.profile";
+
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(PROFILE_STORAGE_KEY);
+      if (raw) setProfile(JSON.parse(raw) as Profile);
+    } catch {
+      // Malformed stored data — fall back to the sample profile.
+    }
+  }, []);
+
+  const saveProfile = (p: Profile) => {
+    setProfile(p);
+    try {
+      window.sessionStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(p));
+    } catch {
+      // Storage unavailable — the in-memory update still applies.
+    }
+  };
+
   return (
     <ProfileContext.Provider
       value={{
         profile: profile ?? SAMPLE_PROFILE,
         isSample: profile === null,
-        saveProfile: setProfile,
+        saveProfile,
       }}
     >
       {children}
