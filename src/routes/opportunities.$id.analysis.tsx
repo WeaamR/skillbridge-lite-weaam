@@ -44,6 +44,8 @@ type State =
  * fabricated results.
  */
 async function requestAnalysis(_profile: Profile, _opportunity: Opportunity): Promise<AnalysisResult> {
+  // Keep the loading state visible long enough to be perceived.
+  await new Promise((r) => setTimeout(r, 800));
   if (!AI_SERVICE_CONFIGURED) {
     throw new Error("AI_SERVICE_UNAVAILABLE");
   }
