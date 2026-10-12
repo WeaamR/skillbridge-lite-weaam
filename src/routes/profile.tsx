@@ -67,9 +67,20 @@ function ProfilePage() {
             {f.hint && <span className="mt-1 block text-xs text-muted-foreground">{f.hint}</span>}
           </label>
         ))}
+        {saved && (
+          <div
+            role="status"
+            className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm"
+          >
+            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <span>
+              <strong>Profile saved.</strong> Your updates are now in use — opportunity fit
+              analysis will use this latest saved profile.
+            </span>
+          </div>
+        )}
         <div className="flex items-center gap-3">
-          <Button type="submit">Save Profile</Button>
-          {saved && <span className="text-sm text-primary" role="status">Profile saved.</span>}
+          <Button type="submit">{saved ? "Saved ✓ — Save Again" : "Save Profile"}</Button>
         </div>
       </form>
     </section>
