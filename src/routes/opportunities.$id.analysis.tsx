@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   AI_SERVICE_CONFIGURED,
@@ -7,6 +7,8 @@ import {
   demoPreview,
   hasEnoughData,
   useProfile,
+  type Opportunity,
+  type Profile,
 } from "@/lib/skillbridge";
 
 export const Route = createFileRoute("/opportunities/$id/analysis")({
@@ -26,27 +28,64 @@ export const Route = createFileRoute("/opportunities/$id/analysis")({
   component: Analysis,
 });
 
-type State = "loading" | "insufficient" | "unavailable" | "error";
+type AnalysisResult = { relevant: string[]; gaps: string[]; steps: string[] };
+
+type State =
+  | { kind: "idle" }
+  | { kind: "analyzing" }
+  | { kind: "success"; result: AnalysisResult }
+  | { kind: "insufficient" }
+  | { kind: "unavailable" }
+  | { kind: "error" };
+
+/**
+ * Runs a real AI fit analysis. No AI service is configured for this app,
+ * so this always reports the service as unavailable rather than returning
+ * fabricated results.
+ */
+async function requestAnalysis(_profile: Profile, _opportunity: Opportunity): Promise<AnalysisResult> {
+  // Keep the loading state visible long enough to be perceived.
+  await new Promise((r) => setTimeout(r, 800));
+  if (!AI_SERVICE_CONFIGURED) {
+    throw new Error("AI_SERVICE_UNAVAILABLE");
+  }
+  // A configured AI service would be called here.
+  throw new Error("AI_SERVICE_UNAVAILABLE");
+}
 
 function Analysis() {
   const o = Route.useLoaderData();
   const { profile, isSample } = useProfile();
-  const [state, setState] = useState<State>("loading");
+  const [state, setState] = useState<State>({ kind: "idle" });
   const [showDemo, setShowDemo] = useState(false);
+  const runId = useRef(0);
 
+  // A profile change invalidates any previous result.
   useEffect(() => {
-    setState("loading");
-    const t = setTimeout(() => {
-      try {
-        if (!hasEnoughData(profile)) setState("insufficient");
-        else if (!AI_SERVICE_CONFIGURED) setState("unavailable");
-        else setState("error");
-      } catch {
-        setState("error");
-      }
-    }, 500);
-    return () => clearTimeout(t);
+    runId.current += 1;
+    setState({ kind: "idle" });
+    setShowDemo(false);
   }, [profile]);
+
+  const analyze = async () => {
+    if (!hasEnoughData(profile)) {
+      setState({ kind: "insufficient" });
+      return;
+    }
+    const id = ++runId.current;
+    setState({ kind: "analyzing" });
+    try {
+      const result = await requestAnalysis(profile, o);
+      if (runId.current === id) setState({ kind: "success", result });
+    } catch (e) {
+      if (runId.current !== id) return;
+      if (e instanceof Error && e.message === "AI_SERVICE_UNAVAILABLE") {
+        setState({ kind: "unavailable" });
+      } else {
+        setState({ kind: "error" });
+      }
+    }
+  };
 
   const demo = demoPreview(profile, o);
 
@@ -62,16 +101,49 @@ function Analysis() {
       </p>
 
       <div className="mt-8 rounded-xl border border-border bg-card p-6 shadow-sm">
-        {state === "loading" && <p className="text-muted-foreground" role="status">Checking your profile…</p>}
-        {state === "insufficient" && (
+        {state.kind === "idle" && (
+          <div>
+            <h2 className="font-semibold">Ready to analyze your fit</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              We will compare your saved profile against this opportunity and show your relevant
+              skills, potential gaps, and recommended next steps.
+            </p>
+            <Button className="mt-4" onClick={analyze}>Analyze My Fit</Button>
+          </div>
+        )}
+
+        {state.kind === "analyzing" && (
+          <div className="flex items-center gap-3" role="status" aria-live="polite">
+            <span
+              className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"
+              aria-hidden="true"
+            />
+            <p className="text-muted-foreground">Analyzing your profile against this opportunity…</p>
+          </div>
+        )}
+
+        {state.kind === "success" && (
+          <div>
+            <h2 className="font-semibold">Your fit analysis</h2>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <Section title="Relevant Skills" items={state.result.relevant} empty="No matching skills found." />
+              <Section title="Potential Gaps" items={state.result.gaps} empty="No gaps found." />
+              <Section title="Recommended Next Steps" items={state.result.steps} empty="Keep your profile up to date." />
+            </div>
+          </div>
+        )}
+
+        {state.kind === "insufficient" && (
           <Notice title="Not enough profile information">
             Add your skills and at least one project or experience entry to analyze your fit.
             <Button asChild className="mt-4 block w-fit"><Link to="/profile">Complete My Profile</Link></Button>
           </Notice>
         )}
-        {state === "unavailable" && (
+
+        {state.kind === "unavailable" && (
           <Notice title="Real AI analysis is currently unavailable">
-            No AI service is configured for this app, so no real AI analysis has been performed.
+            No AI service has been configured for this app, so a real AI-generated analysis cannot
+            be performed right now. No analysis result was produced.
             {!showDemo && (
               <Button variant="outline" className="mt-4 block w-fit" onClick={() => setShowDemo(true)}>
                 Show demonstration example
@@ -79,14 +151,16 @@ function Analysis() {
             )}
           </Notice>
         )}
-        {state === "error" && (
+
+        {state.kind === "error" && (
           <Notice title="Something went wrong">
-            The analysis could not be completed. Please try again later.
+            The analysis could not be completed. Please try again.
+            <Button variant="outline" className="mt-4 block w-fit" onClick={analyze}>Try Again</Button>
           </Notice>
         )}
       </div>
 
-      {state === "unavailable" && showDemo && (
+      {state.kind === "unavailable" && showDemo && (
         <div className="mt-6 rounded-xl border-2 border-dashed border-primary/40 p-6">
           <p className="inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
             Demonstration example — not a real AI analysis
