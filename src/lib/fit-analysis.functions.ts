@@ -62,7 +62,7 @@ Rules:
 export const analyzeFit = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ profile: ProfileInput, opportunity: OpportunityInput }).parse(d))
   .handler(async ({ data }): Promise<FitAnalysisResponse> => {
-    const key = process.env.LOVABLE_API_KEY;
+    const key = process.env["LOVABLE_API_KEY"];
     if (!key) return { ok: false, code: "unavailable", message: "The AI service is not configured." };
 
     const input = `PROFILE:\n${JSON.stringify(data.profile, null, 2)}\n\nOPPORTUNITY:\n${JSON.stringify(
