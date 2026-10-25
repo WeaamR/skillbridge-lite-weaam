@@ -120,7 +120,6 @@ export function useProfile() {
 }
 
 /** Real AI is only "available" when a service has been configured. None is configured. */
-export const AI_SERVICE_CONFIGURED = false;
 
 export function hasEnoughData(p: Profile) {
   return p.skills.trim().length > 0 && (p.projects.trim() || p.experience.trim()).length > 0;
